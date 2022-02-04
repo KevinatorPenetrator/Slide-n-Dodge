@@ -1,0 +1,405 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Media;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace Test
+{
+    public partial class Form1 : Form
+    {
+        static int score = 0, enemySwitch, multipleEnemies, highscore, musicAction = 0;
+        static int enemySpeed = 5;
+        static bool hasGameStarted = false, isSettingMenuOpen = false, isPressEnterVisable = true, isMusicMuted = false;
+        public Form1()
+        {
+            InitializeComponent();
+            highscore = ReadHighScoreFromFile();
+            MaximizeBox = false;
+            MinimizeBox = false;
+            enemyThree.Visible = false;
+            enemyTwo.Visible = false;
+            Console.WriteLine(player.Left);
+            gameTimer.Stop();
+            // Kod för settings
+            Controls.Remove(settingsMenu);
+            Controls.Remove(closeSettingsButton);
+            Controls.Remove(resetHighscoreButton);
+            Controls.Remove(txtSettings);
+            Controls.Remove(selectMusicButton);
+            Controls.Remove(selectMusic0);
+            Controls.Remove(backToSettingsButton);
+            Controls.Remove(muteButton);
+            Controls.Remove(unmuteButton);
+            isSettingMenuOpen = false;
+
+            if(isMusicMuted == false)
+            {
+                Controls.Remove(unmuteButton);
+            }
+        }
+        private void keyUp(object sender, KeyEventArgs e)
+        {
+            if(hasGameStarted == true) { 
+            // To move right
+            if (e.KeyCode == Keys.Left) player.Left -= 50;
+            if (e.KeyCode == Keys.Left && player.Bounds.IntersectsWith(leftWall.Bounds)) player.Left += 50;
+            // To move left
+            if (e.KeyCode == Keys.Right) player.Left += 50;
+            if (e.KeyCode == Keys.Right && player.Bounds.IntersectsWith(rightWall.Bounds)) player.Left -= 50;   
+            }
+            // To restart the game
+            if(e.KeyCode == Keys.Enter && isSettingMenuOpen == false)
+            {
+                RestartGame();
+                hasGameStarted = true;
+                gameTimer.Start();
+                Controls.Remove(txtPressEnter);
+                isPressEnterVisable = false;
+
+
+                // Knowing what music is being played
+
+                if (musicAction == 0 && isMusicMuted == false) PlaySound();
+            }
+            // Pause the game
+            if(e.KeyCode == Keys.Escape && isSettingMenuOpen == false)
+            {
+                gameTimer.Stop();
+                hasGameStarted = false;
+                isSettingMenuOpen = true;
+
+                Controls.Add(settingsMenu);
+                settingsMenu.BringToFront();
+                Controls.Add(closeSettingsButton);
+                closeSettingsButton.BringToFront();
+                Controls.Add(resetHighscoreButton);
+                resetHighscoreButton.BringToFront();
+                Controls.Add(txtSettings);
+                txtSettings.BringToFront();
+                Controls.Add(selectMusicButton);
+                selectMusicButton.BringToFront();
+            }
+        }
+        private void MainGameTimerEvent(object sender, EventArgs e)
+        {
+            foreach (Control x in this.Controls)
+            {
+                txtScore.Text = "Score: " + score;
+                txtHighscore.Text = "highscore: " + highscore;
+
+                if (score > highscore)
+                {
+                    highscore = score;
+                    txtHighscore.Text = "Highscore: " + highscore;
+                }
+
+                if ((string)x.Tag == "enemy")
+                {
+                    x.Top += enemySpeed;
+                    if (x.Top > 500 && x.Visible == true)
+                    {
+                        x.Top = 5;
+                        if (score < 13) enemySpeed++;
+                        if (score == 100 && score < 105) enemySpeed++; 
+                        
+                        score++;
+                     
+                        Random rndmNumber = new Random();
+
+                        x.Visible = false;
+                        enemySwitch = rndmNumber.Next(1, 4);
+
+                        switch (enemySwitch)
+                        {
+                            case 1:
+                                enemyThree.Visible = true;
+                                break;
+                            case 2:
+                                enemy.Visible = true;
+                                break;
+                            case 3:
+                                enemyTwo.Visible = true;
+                                break;
+                        }
+                        multipleEnemies = rndmNumber.Next(1, 4);
+
+                        switch (multipleEnemies)
+                        {
+                            case 1:
+                                if(enemy.Visible == true)
+                                {
+                                    int chooseEnemy = rndmNumber.Next(1, 2);
+
+                                    if (chooseEnemy == 1)
+                                    {
+                                        enemyTwo.Visible = true;
+                                        enemyThree.Visible = false;
+                                    }
+                                    else
+                                    {
+                                        enemyThree.Visible = true;
+                                        enemyTwo.Visible = false;
+                                    }
+                                }
+                                break;
+                            case 2:
+                                if(enemyTwo.Visible == true)
+                                {
+                                    int chooseEnemy = rndmNumber.Next(1, 2);
+
+                                    if (chooseEnemy == 1)
+                                    {
+                                        enemy.Visible = true;
+                                        enemyThree.Visible = false;
+                                    }
+                                    else
+                                    {
+                                        enemyThree.Visible = true;
+                                        enemy.Visible = false;
+                                    }
+                                }
+                                break;
+                            case 3:
+                                if(enemyThree.Visible == true)
+                                {
+                                    int chooseEnemy = rndmNumber.Next(1, 2);
+
+                                    if (chooseEnemy == 1)
+                                    {
+                                        enemy.Visible = true; enemyTwo.Visible = false;
+                                    }
+                                    else
+                                    {
+                                        enemyTwo.Visible = true;
+                                        enemy.Visible = false;
+                                    }
+                                }
+                                break;
+                            default:
+                                enemy.Visible = true;
+                                enemyTwo.Visible = false;
+                                enemyThree.Visible = false;
+                                break;
+                        }
+                    }
+                    if (player.Bounds.IntersectsWith(x.Bounds) && x.Visible == true)
+                    {
+                        SoundPlayer s = new SoundPlayer(System.Environment.CurrentDirectory + "\\Death Sound.wav");
+                        s.Play();
+                        GameHasEnded();
+                    }
+                    if((string)x.Tag == "enemy" && x.Visible == false)
+                    {
+                        x.Top = 5;
+                    }
+                }
+            }
+        }
+
+        private void closeSettingsButton_Click(object sender, EventArgs e)
+        {
+            if (closeSettingsButton.Text == "close")
+            {
+                gameTimer.Start();
+                hasGameStarted = true;
+                isSettingMenuOpen = false;
+                Controls.Remove(closeSettingsButton);
+                Controls.Remove(settingsMenu);
+                Controls.Remove(resetHighscoreButton);
+                Controls.Remove(txtSettings);
+                Controls.Remove(selectMusicButton);
+                Controls.Remove(unmuteButton);
+                if (isPressEnterVisable == true)
+                {
+                    gameTimer.Stop();
+                }
+                if (isPressEnterVisable == false)
+                {
+                    gameTimer.Start();
+
+                    // Incase something other than Jumper is going to be playing
+                    if(musicAction != 0)
+                    {
+                        switch (musicAction)
+                        {
+
+                        }
+                    }
+                    else
+                    {
+                        PlaySound();
+                    }
+                }
+            }
+           
+        }
+
+        private void resetHighscoreButton_Click(object sender, EventArgs e)
+        {
+            highscore = 0;
+            SaveHighscoreToFile();
+            txtHighscore.Text = "Highscore: " + highscore;
+            RestartGame();
+            gameTimer.Stop();
+        }
+
+        private void backToSettingsButton_Click(object sender, EventArgs e)
+        {
+            txtSettings.Text = "Settings";
+            Controls.Remove(backToSettingsButton);
+            Controls.Add(closeSettingsButton);
+            closeSettingsButton.BringToFront();
+            Controls.Remove(selectMusic0);
+            Controls.Add(selectMusicButton);
+            selectMusicButton.BringToFront();
+            Controls.Add(resetHighscoreButton);
+            resetHighscoreButton.BringToFront();
+            Controls.Remove(unmuteButton);
+        }
+
+        private void muteButton_Click(object sender, EventArgs e)
+        {
+            isMusicMuted = true;
+            muteButton.Text = "Unmute";
+            Controls.Remove(muteButton);
+            Controls.Add(unmuteButton);
+            unmuteButton.BringToFront();
+        }
+
+        private void unmuteButton_Click(object sender, EventArgs e)
+        {
+            isMusicMuted = false;
+            Controls.Remove(unmuteButton);
+            Controls.Add(muteButton);
+            muteButton.BringToFront();
+        }
+
+        private void selectMusic0_Click(object sender, EventArgs e)
+        {
+            isMusicMuted = false;
+            Controls.Remove(unmuteButton);
+            Controls.Add(muteButton);
+            musicAction = 0;
+        }
+
+        private void selectMusicButton_Click(object sender, EventArgs e)
+        {
+            txtSettings.Text = "Music Settings";
+            Controls.Remove(selectMusicButton);
+            Controls.Remove(resetHighscoreButton);
+            Controls.Remove(closeSettingsButton);
+            Controls.Add(backToSettingsButton);
+            Controls.Add(selectMusic0);
+            selectMusic0.BringToFront();
+            backToSettingsButton.BringToFront();
+            Controls.Add(muteButton);
+            muteButton.BringToFront();
+        }
+
+        void PlaySound()
+        {
+            if (isMusicMuted == false && musicAction == 0)
+            {
+                SoundPlayer s = new SoundPlayer(System.Environment.CurrentDirectory + "\\Castle Crashers OST Jumper" + ".wav");
+                if (hasGameStarted == true)
+                {
+                    s.Play();
+                }
+                if (hasGameStarted == false) s.Stop();
+            }
+        }
+        private void GameHasEnded()
+        {
+            txtScore.Text = "Score: " + score + Environment.NewLine + "YOU DIED";
+            foreach (Control x in this.Controls)
+            {
+                if ((string)x.Tag == "enemy")
+                {
+                    player.Visible = false;
+                    x.Visible = false;
+                    gameTimer.Stop();
+                    Controls.Add(txtPressEnter);
+                    txtPressEnter.BringToFront();
+                    isPressEnterVisable = true;
+                }
+                SaveHighscoreToFile();
+            }
+        }
+        private void RestartGame()
+        {
+            gameTimer.Start();
+
+            foreach(Control x in this.Controls)
+            {
+                if((string)x.Tag == "enemy")
+                {
+                    x.Top = 5;
+                }
+                if((string)x.Tag == "player")
+                {
+                    enemy.Visible = true;
+                    enemyTwo.Visible = false;
+                    enemyThree.Visible = false;
+                    player.Visible = true;
+                    x.Left = 200;
+                    player.Left = 205;
+                    enemySpeed = 5;
+                    score = 0;
+                }
+            }
+            enemy.Visible = true;
+        }
+        private void SaveHighscoreToFile()
+        {
+            StreamWriter s = new StreamWriter("data.txt");
+            s.WriteLine(highscore);
+            s.Close();
+        }
+        int ReadHighScoreFromFile()
+        {
+            int r = 0;
+            if (File.Exists("data.txt"))
+            {
+                StreamReader s = new StreamReader("data.txt");
+                r = int.Parse(s.ReadLine());
+                s.Close();
+                return r;
+            }
+            else
+            {
+                return 1;
+            }
+        }
+
+    }
+}
+/* 
+    SAKER SOM JAG VILL ADDA TILL SPELET:
+
+    1. Att man har en pause funktion som tar upp en meny när man klickar på Escape.
+       Jag lyckades typ att göra detta, jag vill bara att man ska kunna stänga den med Escape efteråt också.
+
+    
+    2. I pause menyn så vill jag att man ska ha inställningar. Till exempel att stänga av musiken eller reseta highscoret.
+
+    
+    3. Jag vill ha en lisa av användarnamn som har olika highscores. Och när spelet startar vill jag att man ska antingen välja
+       En user som redan finns eller skriva in en ny user. Skriver dom in en ny, resetas highscoret till 0, eftersom det är en ny user
+       med ett nytt highscore.
+       Ifall det redan finns en user, så skriver highscoret bara in highscoret till den usern.
+
+    4. Adda ett ljud när man dör + att skärmen ska visa "YOU DIED" efter man dött, i någon sekund.
+
+    
+    5. Det måste finns en mute knapp och att ha fler alternativ för låtar. 
+
+    JAG VET INTE OM MAN KAN GÖRA DESSA SAKERNA. FAST DET LÅTER GÖRBART.
+*/
+ 
